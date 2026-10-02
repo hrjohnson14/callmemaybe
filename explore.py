@@ -4,6 +4,7 @@ from src.grammar import (
     classify_string_safe_tokens,
     find_string_start_tokens,
     find_number_start_tokens,
+    find_boolean_start_tokens
 )
 
 model = Small_LLM_Model()
@@ -26,3 +27,7 @@ print(f"number_start tokens: {len(number_start)}")
 for tid in sorted(number_start):
     print(tid, repr(id_to_str[tid]))
 
+boolean_start = find_boolean_start_tokens(id_to_str)
+print(f"boolean_start tokens: {len(boolean_start)}")
+for tid in sorted(boolean_start):
+    print(tid, repr(id_to_str[tid]))

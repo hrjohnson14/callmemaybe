@@ -34,3 +34,15 @@ def find_number_start_tokens(id_to_str: dict[int, str]) -> set[int]:
         if re.fullmatch(r'[0-9]', s):
             result.add(tid)
     return result
+
+
+def find_boolean_start_tokens(id_to_str: dict[int, str]) -> set[int]:
+    """Find every token id whose string is
+    exactly 'true' or 'false'"""
+
+    result = set()
+
+    for tid, s in id_to_str.items():
+        if s == "true" or s == "false":
+            result.add(tid)
+    return result
