@@ -1,0 +1,25 @@
+[project]
+name = "callmemaybe"
+version = "0.1.0"
+description = "Function calling with constrained decoding"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "llm-sdk",
+    "numpy>=2.5.3",
+    "pydantic>=2.13.5",
+]
+
+[tool.uv.workspace]
+members = [
+    "llm_sdk",
+]
+
+[tool.uv.sources]
+llm-sdk = { workspace = true, editable = true }
+
+[dependency-groups]
+dev = [
+    "flake8>=7.4.1",
+    "mypy>=2.3.1",
+]
