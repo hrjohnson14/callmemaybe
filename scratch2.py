@@ -75,6 +75,7 @@ def gen_string(ids):
         ids.append(tid)
     return value
 
+
 def gen_value(type_name, ids):
     if type_name in ("number", "integer"):
         return gen_num(ids)
@@ -83,14 +84,30 @@ def gen_value(type_name, ids):
     else:
         raise ValueError(f"unsupported type: {type_name}")
 
+
 def forced_text(param, type_name, first):
     if first:
         start = '{"'
     else:
         start = ', "'
     text = start + param + '": '
+    if type_name == "string":
+        text += '"'
     return text
 
+
+def gen_params(fn, ids):
+    values = {}
+    first = True
+    for name, spec in fn["parameters"].items():
+        forced = forced_text(name, spec["type"], first)
+        ids += model.encode(forced).tolist()[0]
+        value = gen_value(spec["type"], ids)
+        if spec["type"] in ("number", "integer"):
+            value = float(value)
+        values[name] = value
+        first = False
+    return values
 
 #tests
 request = "Reverse the string 'hello'"
@@ -100,8 +117,20 @@ for fn in functions:
 text += f"\nRequest: {request}\n"
 text += 'Answer: {"name": "fn_reverse_string", "parameters": {"s": "'
 ids = model.encode(text).tolist()[0]
-#print(repr(gen_string(ids)))
+# print(repr(gen_string(ids)))  
 
 print(repr(gen_value("string", ids)))
 print(repr(forced_text("a", "number", True)))
-print(repr(forced_text("b", "number", False)))
+print(repr(forced_text("s", "string", True)))
+print(repr(forced_text("replacement", "string", False)))
+
+request = "What is the sum of 265 and 345?"
+text = "Available functions:\n"
+for fn in functions:
+    text += f"- {fn['name']}: {fn['description']}\n"
+text += f"\nRequest: {request}\n"
+text += 'Answer: {"name": "fn_add_numbers", "parameters": '
+ids = model.encode(text).tolist()[0]
+
+fn = next(f for f in functions if f["name"] == "fn_add_numbers")
+print(gen_params(fn, ids))
