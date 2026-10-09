@@ -32,9 +32,9 @@ with open("data/input/functions_definition.json") as f:
 text = "Available functions:\n"
 for fn in functions:
     text += f"- {fn['name']}: {fn['description']}\n"
-text += "\nRequest: Greet john\n"
+request = "Reverse the string 'hello'"
+text += f"\nRequest: {request}\n"
 text += 'Answer: {"name": "'
-
 print(text)
 def build_id_to_string(model, vocab_size):
     return {tid: model.decode([tid]) for tid in range(vocab_size)}
@@ -44,7 +44,6 @@ id_to_str = build_id_to_string(model, 151643)
 print(len(id_to_str))
 print(repr(id_to_str[17]))
 print(repr(id_to_str[3555]))
-print("--- reached the end ---")
 
 clean = {}
 for tid, s in id_to_str.items():
@@ -72,7 +71,56 @@ logits = model.get_logits_from_input_ids(ids)
 tid = pick_token(logits, allowed)
 print("picked:", tid, repr(clean[tid]))
 
-ids = model.encode(text).tolist()[0]
+while generated not in names:
+    allowed = []
+    for tid, s in clean.items():
+        for n in names:
+            if n.startswith(generated + s):
+                allowed.append(tid)
+                break
+
+    logits = model.get_logits_from_input_ids(ids)
+    tid = pick_token(logits, allowed)
+    generated += clean[tid]
+    ids.append(tid)
+    print(repr(generated))
+
+fn = next(f for f in functions if f["name"] == generated)
+param = list(fn["parameters"])[0]
+
+forced = '", "parameters": {"' + param + '": "'
+ids += model.encode(forced).tolist()[0]
+
+print(repr(model.decode(ids[-15:])))
+
+safe = [t for t, s in clean.items() if '"' not in s and
+        "\\" not in s and "\n" not in s]
+print(len(safe))
+
 logits = model.get_logits_from_input_ids(ids)
-tid = pick_token(logits, allowed)
-print("picked:", tid, repr(clean[tid]))
+tid = pick_token(logits, safe)
+print("first value token:", tid, repr(clean[tid]))
+
+quote = [t for t, s in clean.items() if s == '"']
+print(quote)
+
+value = ""
+allowed_value = safe + quote
+
+while True:
+    logits = model.get_logits_from_input_ids(ids)
+    tid = pick_token(logits, allowed_value)
+    if tid == quote[0]:
+        break
+    value += clean[tid]
+    ids.append(tid)
+
+print(repr(value))
+
+result = {
+    "prompt": request,
+    "name": generated,
+    "parameters": {param: value},
+}
+print(json.dumps(result))
+
