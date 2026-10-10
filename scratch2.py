@@ -61,18 +61,20 @@ print(repr(a), repr(b))
 safe = [t for t, s in clean.items() if '"' not in s 
         and "\\" not in s and "\n" not in s]
 quote = [t for t, s in clean.items() if s == '"']
+stop = [t for t, s in clean.items() if s.startswith('"')]
 
 
 def gen_string(ids):
     value = ""
-    allowed = safe + quote
-    while True:
+    allowed = safe + stop
+    for _ in range(50):
         logits = model.get_logits_from_input_ids(ids)
         tid = pick_token(logits, allowed)
-        if tid in quote:
+        if tid in stop:
             break
         value += clean[tid]
         ids.append(tid)
+    print("DEBUG string:", repr(value))
     return value
 
 
@@ -100,6 +102,8 @@ def gen_params(fn, ids):
     values = {}
     first = True
     for name, spec in fn["parameters"].items():
+        if spec["type"] == "string":
+            ids += model.encode('"').tolist()[0]
         forced = forced_text(name, spec["type"], first)
         ids += model.encode(forced).tolist()[0]
         value = gen_value(spec["type"], ids)
@@ -108,6 +112,24 @@ def gen_params(fn, ids):
         values[name] = value
         first = False
     return values
+
+
+def choose_name(ids, names):
+    generated = ""
+    while generated not in names:
+        allowed = []
+        for tid, s in clean.items():
+            for n in names:
+                if n.startswith(generated + s):
+                    allowed.append(tid)
+                    break
+
+        logits = model.get_logits_from_input_ids(ids)
+        tid = pick_token(logits, allowed)
+        generated += clean[tid]
+        ids.append(tid)
+    return generated
+
 
 #tests
 request = "Reverse the string 'hello'"
@@ -124,13 +146,23 @@ print(repr(forced_text("a", "number", True)))
 print(repr(forced_text("s", "string", True)))
 print(repr(forced_text("replacement", "string", False)))
 
-request = "What is the sum of 265 and 345?"
+request = "Replace all vowels in 'Programming is fun' with asterisks"
 text = "Available functions:\n"
-for fn in functions:
-    text += f"- {fn['name']}: {fn['description']}\n"
+for f in functions:
+    text += f"- {f['name']}: {f['description']}\n"
 text += f"\nRequest: {request}\n"
-text += 'Answer: {"name": "fn_add_numbers", "parameters": '
+text += 'Answer: {"name": "fn_substitute_string_with_regex", "parameters": '
 ids = model.encode(text).tolist()[0]
 
-fn = next(f for f in functions if f["name"] == "fn_add_numbers")
+fn = next(f for f in functions if f["name"] == "fn_substitute_string_with_regex")
 print(gen_params(fn, ids))
+
+names = [f["name"] for f in functions]
+request = "Greet john"
+text = "Available functions:\n"
+for f in functions:
+    text += f"- {f['name']}: {f['description']}\n"
+text += f"\nRequest: {request}\n"
+text += 'Answer: {"name": "'
+ids = model.encode(text).tolist()[0]
+print(choose_name(ids, names))
